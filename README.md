@@ -64,7 +64,12 @@ viewer with only the extra `key_manager` relation, so he can rotate API keys but
 
 **Approval is driven by MCP metadata.** Tools annotated `destructiveHint` (delete rule, revoke key,
 revoke role, purge events) make the graph `interrupt()` before the tools stage. The pause is a
-checkpoint: the decision can arrive minutes later, after a page reload or a server restart.
+checkpoint: the decision can arrive minutes later, after a page reload or a server restart. The
+model is told that these tools are gated (in each tool's description and in the system prompt).
+Before that, the tool descriptions said "requires the user's approval", and the model read this as
+"ask first": on the purge task it asked for confirmation in chat instead of calling the tool, in 2 of
+3 eval runs. A chat "yes" is also weaker than the approval step, which binds the decision to one
+exact call and its arguments.
 
 **One MCP connection, many users.** Because identity is per request, a single connection serves
 every session concurrently. It lives in its own task, since the MCP client's anyio task groups

@@ -11,7 +11,9 @@ import pathlib
 import sys
 import time
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "backend"))
+# The package is in backend/ in the repository and at the top of /app in the container image.
+_root = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_root / "backend" if (_root / "backend" / "agentplat").is_dir() else _root))
 from agentplat.config import get_settings  # noqa: E402
 from agentplat.llm import DeepSeekLLM  # noqa: E402
 

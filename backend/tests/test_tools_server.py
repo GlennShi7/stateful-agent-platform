@@ -6,7 +6,7 @@ from mcp import Client
 
 from agentplat import tokens
 from agentplat.authz import TOOL_PERMISSIONS, StaticAuthorizer
-from agentplat.tools_server import CALLER_META, IDEMPOTENCY_META, build_server
+from agentplat.tools_server import CALLER_META, GATED, IDEMPOTENCY_META, build_server
 
 from .helpers import SETTINGS
 
@@ -71,6 +71,11 @@ async def test_destructive_tools_are_annotated(server):
         tools = (await client.list_tools(meta=caller("alice"))).tools
         destructive = {t.name for t in tools if t.annotations and t.annotations.destructive_hint}
         assert destructive == {"delete_alert_rule", "revoke_api_key", "revoke_role", "purge_events"}
+        # The model must be told the platform does the confirming, or it asks in chat instead of calling.
+        for t in tools:
+            gated = bool(t.annotations and t.annotations.destructive_hint)
+            assert t.description.endswith(GATED) == gated, t.name
+            assert "requires the user's approval" not in t.description.lower(), t.name
 
 
 async def test_call_is_checked_again_at_execution(server):

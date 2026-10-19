@@ -38,6 +38,9 @@ EventType = Annotated[str, Field(min_length=1, max_length=40, description="Event
 DESTRUCTIVE = mcp_types.ToolAnnotations(destructive_hint=True, read_only_hint=False)
 WRITE = mcp_types.ToolAnnotations(destructive_hint=False, read_only_hint=False)
 READ = mcp_types.ToolAnnotations(read_only_hint=True)
+# Appended to every destructive tool's description. Without it the model read "requires approval" as
+# "ask the user first" and asked in chat instead of calling the tool (eval task purge_old_events).
+GATED = " Calling it pauses for the user's approval; it runs only if they approve."
 
 
 def _denied(text):
@@ -206,9 +209,8 @@ def build_server(repo, authz, settings, *, lifespan=None) -> MCPServer:
                     "threshold": threshold, "window_minutes": window_minutes}
         return out(await repo.run_idempotent(idem(ctx), "create_alert_rule", user, write))
 
-    @srv.tool(annotations=DESTRUCTIVE)
+    @srv.tool(annotations=DESTRUCTIVE, description="Delete an alert rule." + GATED)
     async def delete_alert_rule(rule_id: int, ctx: Context) -> str:
-        """Delete an alert rule. Requires the user's approval."""
         user = caller(ctx)["sub"]
 
         async def write(cur):
@@ -233,10 +235,9 @@ def build_server(repo, authz, settings, *, lifespan=None) -> MCPServer:
             return {"key_id": kid, "name": name, "api_key": plaintext}
         return out(await repo.run_idempotent(idem(ctx), "create_api_key", user, write))
 
-    @srv.tool(annotations=DESTRUCTIVE)
+    @srv.tool(annotations=DESTRUCTIVE, description="Revoke an API key by id or by name." + GATED)
     async def revoke_api_key(ctx: Context, key_id: int | None = None,
                              name: Annotated[str, Field(max_length=60)] | None = None) -> str:
-        """Revoke an API key by id or by name. Requires the user's approval."""
         user = caller(ctx)["sub"]
         if key_id is None:
             if not name:
@@ -272,9 +273,8 @@ def build_server(repo, authz, settings, *, lifespan=None) -> MCPServer:
             return {"granted": True, "user": user, "role": role}
         return out(await repo.run_idempotent_external(idem(ctx), "grant_role", me, op))
 
-    @srv.tool(annotations=DESTRUCTIVE)
+    @srv.tool(annotations=DESTRUCTIVE, description="Remove a role from a user." + GATED)
     async def revoke_role(user: Username, role: Role, ctx: Context) -> str:
-        """Remove a role from a user. Requires the user's approval."""
         me = caller(ctx)["sub"]
         if user == me and role == "admin":
             return out({"error": "refusing to remove your own admin role"})
@@ -285,9 +285,9 @@ def build_server(repo, authz, settings, *, lifespan=None) -> MCPServer:
         return out(await repo.run_idempotent_external(idem(ctx), "revoke_role", me, op))
 
     # ------------------------------------------------------------------ data lifecycle
-    @srv.tool(annotations=DESTRUCTIVE)
+    @srv.tool(annotations=DESTRUCTIVE,
+              description="Permanently delete raw events and rollup rows older than N days." + GATED)
     async def purge_events(older_than_days: Annotated[int, Field(ge=1, le=3650)], ctx: Context) -> str:
-        """Permanently delete raw events and rollup rows older than N days. Requires the user's approval."""
         me = caller(ctx)["sub"]
 
         async def op():
