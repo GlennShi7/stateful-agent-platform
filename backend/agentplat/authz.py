@@ -95,6 +95,39 @@ class StaticAuthorizer:
         return sorted((u, r) for (ws, u, r) in self.rel if ws == workspace)
 
 
+def _plaintext_client(endpoint: str, key: str):
+    """Async SpiceDB client over plaintext gRPC with the preshared key as a bearer token.
+
+    grpcutil.insecure_bearer_token_credentials builds on grpc.local_channel_credentials, which gRPC
+    only accepts for loopback addresses: it works against localhost and fails against another
+    container ("Endpoint is neither UDS or TCP loopback address"). authzed.InsecureClient avoids
+    that but is synchronous. So: a plain grpc.aio channel and an interceptor that adds the token.
+    Plaintext is fine on the compose network; anything else should use TLS
+    (grpcutil.bearer_token_credentials with authzed.AsyncClient).
+    """
+    import grpc
+    from authzed.api.v1 import Client
+
+    def with_token(d):
+        md = grpc.aio.Metadata(*(d.metadata or ()))
+        md.add("authorization", f"Bearer {key}")
+        return grpc.aio.ClientCallDetails(d.method, d.timeout, md, d.credentials, d.wait_for_ready)
+
+    # Two classes, not one with both methods: grpc.aio files each interceptor under the first
+    # matching kind only, so a combined class would never see the streaming ReadRelationships call.
+    class Unary(grpc.aio.UnaryUnaryClientInterceptor):
+        async def intercept_unary_unary(self, continuation, details, request):
+            return await continuation(with_token(details), request)
+
+    class Streaming(grpc.aio.UnaryStreamClientInterceptor):
+        async def intercept_unary_stream(self, continuation, details, request):
+            return await continuation(with_token(details), request)
+
+    client = Client.__new__(Client)  # Client.__init__ would build a TLS channel; we only want the stubs
+    client.init_stubs(grpc.aio.insecure_channel(endpoint, interceptors=[Unary(), Streaming()]))
+    return client
+
+
 class SpiceDBAuthorizer:
     def __init__(self, endpoint: str, key: str):
         self._endpoint, self._key, self._grpc = endpoint, key, None
@@ -107,10 +140,7 @@ class SpiceDBAuthorizer:
         # Created on first use: a grpc.aio channel binds to the event loop that is running when it is
         # made, and this object is constructed before the server's loop starts.
         if self._grpc is None:
-            from authzed.api.v1 import AsyncClient
-            from grpcutil import insecure_bearer_token_credentials
-
-            self._grpc = AsyncClient(self._endpoint, insecure_bearer_token_credentials(self._key))
+            self._grpc = _plaintext_client(self._endpoint, self._key)
         return self._grpc
 
     def _consistency(self):
