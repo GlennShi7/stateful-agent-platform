@@ -1,0 +1,9 @@
+__pycache__/
+.pytest_cache/
+.venv/
+node_modules/
+frontend/dist/
+.env
+bench/results/*.json
+backend/evals/results/*.json
+notes/

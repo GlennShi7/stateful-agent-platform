@@ -1,0 +1,12 @@
+# Runtime dependencies. Exact versions of everything (including transitive packages) are in
+# requirements.lock; install with: pip install -r requirements.txt -c requirements.lock
+langgraph==1.2.12
+langgraph-checkpoint-postgres==3.1.2
+mcp==2.3.0
+authzed==1.25.0
+fastapi==0.142.2
+uvicorn[standard]==0.54.0
+psycopg[binary]==3.3.6
+psycopg-pool==3.3.3
+httpx==0.28.1
+websockets==16.1.1

@@ -1,0 +1,49 @@
+name: ci
+on: [push, pull_request]
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: agent, POSTGRES_PASSWORD: agent, POSTGRES_DB: agent }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U agent" --health-interval 2s --health-timeout 5s --health-retries 30
+    env:
+      TEST_DATABASE_URL: postgresql://agent:agent@localhost:5432/agent
+      SPICEDB_ENDPOINT: localhost:50051
+      SPICEDB_KEY: devkey
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Install dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt -r requirements-dev.txt -c requirements.lock
+      - name: Start SpiceDB (in-memory)
+        run: |
+          curl -sSL -o /tmp/spicedb.tgz https://github.com/authzed/spicedb/releases/download/v1.56.2/spicedb_1.56.2_linux_amd64.tar.gz
+          tar -xzf /tmp/spicedb.tgz -C /tmp spicedb
+          /tmp/spicedb serve --grpc-preshared-key devkey --datastore-engine memory --http-enabled=false --telemetry-endpoint="" &
+          for i in $(seq 1 30); do nc -z localhost 50051 && break; sleep 1; done
+      - name: Tests (unit + Postgres + SpiceDB integration)
+        working-directory: backend
+        run: python -m pytest -q -rs
+
+  frontend:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: npm, cache-dependency-path: frontend/package-lock.json }
+      - working-directory: frontend
+        run: npm ci && npm run build
+
+  compose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config -q
+      - run: docker compose build

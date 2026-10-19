@@ -1,0 +1,85 @@
+name: agent-platform
+
+x-backend: &backend
+  build: { context: ., dockerfile: backend/Dockerfile }
+  image: agentplat-backend:dev
+  environment:
+    APP_DATABASE_URL: postgresql://agent:agent@postgres:5432/agent
+    # Integrated mode (make up-integrated) points this at the analytics dashboard's database.
+    ANALYTICS_DATABASE_URL: ${ANALYTICS_DATABASE_URL:-postgresql://agent:agent@postgres:5432/agent}
+    SPICEDB_ENDPOINT: spicedb:50051
+    SPICEDB_KEY: ${SPICEDB_KEY:-devkey}
+    MCP_URL: http://mcp-server:8001/mcp
+    CALLER_SECRET: ${CALLER_SECRET:-dev-caller-secret-change-me}
+    SESSION_SECRET: ${SESSION_SECRET:-dev-session-secret-change-me}
+    LLM_PROVIDER: ${LLM_PROVIDER:-deepseek}
+    DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+    DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-flash}
+    DEEPSEEK_THINKING: ${DEEPSEEK_THINKING:-disabled}
+    DASHBOARD_EVENTS_URL: ${DASHBOARD_EVENTS_URL:-}
+    TEST_DATABASE_URL: postgresql://agent:agent@postgres:5432/agent_test
+  extra_hosts: ["host.docker.internal:host-gateway"]
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: agent, POSTGRES_PASSWORD: agent, POSTGRES_DB: agent }
+    ports: ["5433:5432"]   # 5432 is left free for the analytics dashboard's Postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/000_spicedb_database.sql:/docker-entrypoint-initdb.d/000_spicedb_database.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent -d agent"]
+      interval: 2s
+      retries: 30
+
+  spicedb-migrate:
+    image: authzed/spicedb:v1.56.2
+    command: migrate head --datastore-engine postgres --datastore-conn-uri postgres://agent:agent@postgres:5432/spicedb?sslmode=disable
+    depends_on: { postgres: { condition: service_healthy } }
+    restart: on-failure
+
+  spicedb:
+    image: authzed/spicedb:v1.56.2
+    command: serve --grpc-preshared-key ${SPICEDB_KEY:-devkey} --datastore-engine postgres --datastore-conn-uri postgres://agent:agent@postgres:5432/spicedb?sslmode=disable --telemetry-endpoint=""
+    depends_on: { spicedb-migrate: { condition: service_completed_successfully } }
+    ports: ["50051:50051"]
+
+  mcp-server:
+    <<: *backend
+    command: ["python", "-m", "agentplat.tools_server"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      spicedb: { condition: service_started }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/healthz')"]
+      interval: 2s
+      retries: 60
+
+  agent:
+    <<: *backend
+    command: ["uvicorn", "agentplat.gateway:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports: ["8000:8000"]
+    depends_on: { mcp-server: { condition: service_healthy } }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 2s
+      retries: 60
+
+  frontend:
+    build: ./frontend
+    image: agentplat-frontend:dev
+    ports: ["8081:80"]     # 8080 belongs to the analytics dashboard
+    depends_on: [agent]
+
+  # One-off commands: seeding, tests, eval, benchmarks (see Makefile). Results land on the host.
+  runner:
+    <<: *backend
+    profiles: ["tools"]
+    depends_on: { postgres: { condition: service_healthy } }
+    volumes:
+      - ./bench/results:/app/bench/results
+      - ./backend/evals/results:/app/evals/results
+
+volumes:
+  pgdata:

@@ -1,0 +1,18 @@
+definition user {}
+
+// One workspace per analytics deployment. Roles are relations; tools map to permissions
+// (see TOOL_PERMISSIONS in authz.py), so granting a role never means "can call everything".
+definition workspace {
+    relation admin: user
+    relation operator: user
+    relation viewer: user
+    // A single capability granted without a role: can manage API keys, nothing else extra.
+    relation key_manager: user
+
+    permission view          = viewer + operator + admin
+    permission annotate      = operator + admin
+    permission manage_alerts = operator + admin
+    permission manage_keys   = key_manager + admin
+    permission manage_access = admin
+    permission purge_data    = admin
+}

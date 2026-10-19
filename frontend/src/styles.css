@@ -1,0 +1,110 @@
+:root {
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --text: #1c2129;
+  --muted: #667085;
+  --line: #e3e6eb;
+  --accent: #2f6fdf;
+  --accent-text: #ffffff;
+  --user-bg: #e9f0fd;
+  --ok: #1f8a4c;
+  --err: #c2372f;
+  --warn: #b7791f;
+  --code-bg: #f1f3f6;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111418;
+    --panel: #181c21;
+    --text: #e6e9ee;
+    --muted: #8b95a5;
+    --line: #2a3038;
+    --accent: #5b8ef0;
+    --user-bg: #1f2b40;
+    --code-bg: #20262e;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); }
+button { font: inherit; color: inherit; background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+         padding: 6px 12px; cursor: pointer; }
+button:disabled { opacity: 0.5; cursor: default; }
+button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+button.link { border: none; background: none; color: var(--accent); padding: 0 4px; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.error { color: var(--err); }
+.badge { font-size: 11px; padding: 1px 6px; border-radius: 10px; border: 1px solid var(--line); color: var(--muted); }
+.row { display: flex; gap: 8px; margin-top: 8px; }
+
+.login { max-width: 640px; margin: 10vh auto; padding: 0 16px; }
+.login h1 { margin-bottom: 4px; }
+.users { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-top: 20px; }
+.user-card { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px; text-align: left; }
+.user-name { font-weight: 600; font-size: 16px; }
+
+.app { display: grid; grid-template-columns: 280px minmax(0, 1fr); height: 100vh; }
+.sidebar { border-right: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column;
+           padding: 12px; gap: 10px; min-height: 0; }
+.me { display: flex; justify-content: space-between; align-items: center; }
+.tools-visible summary { cursor: pointer; color: var(--muted); }
+.tools-visible ul { margin: 6px 0; padding-left: 16px; max-height: 220px; overflow: auto; }
+.sessions { display: flex; flex-direction: column; gap: 4px; overflow: auto; flex: 1; }
+.session { display: flex; align-items: center; gap: 8px; text-align: left; border-color: transparent; }
+.session.active { border-color: var(--line); background: var(--bg); }
+.session-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: transparent; border: 1px solid var(--line); }
+.dot-running { background: var(--accent); border-color: var(--accent); animation: pulse 1s infinite; }
+.dot-approval { background: var(--warn); border-color: var(--warn); }
+.dot-resumable { background: var(--err); border-color: var(--err); }
+@keyframes pulse { 50% { opacity: 0.3; } }
+.conn.ok { color: var(--ok); }
+.conn.bad { color: var(--err); }
+
+main { min-width: 0; min-height: 0; display: flex; }
+.placeholder { margin: auto; }
+.chat { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.messages { flex: 1; overflow: auto; padding: 20px max(16px, calc((100% - 820px) / 2)); display: flex;
+            flex-direction: column; gap: 10px; }
+.msg { padding: 10px 12px; border-radius: 8px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
+.msg-user { align-self: flex-end; background: var(--user-bg); max-width: 80%; }
+.msg-assistant { background: var(--panel); border: 1px solid var(--line); }
+.msg-assistant.streaming::after { content: "\258D"; opacity: 0.6; }
+.empty { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.suggestion { text-align: left; }
+
+.tool { border: 1px solid var(--line); border-radius: 6px; background: var(--panel); font-size: 12px; }
+.tool-head { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; min-width: 0; }
+.tool-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex: none; }
+.tool-running .tool-dot { background: var(--accent); animation: pulse 1s infinite; }
+.tool-ok .tool-dot { background: var(--ok); }
+.tool-error .tool-dot { background: var(--err); }
+.tool-name { font-weight: 600; }
+.tool-args { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.tool-result { margin: 0; padding: 8px 10px; border-top: 1px solid var(--line); background: var(--code-bg);
+               max-height: 240px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+
+.approval { border: 1px solid var(--warn); border-radius: 8px; padding: 12px; background: var(--panel); }
+.approval-title { font-weight: 600; color: var(--warn); }
+.approval-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; min-width: 0; }
+.notice { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--panel);
+          display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+.notice.error { border-color: var(--err); color: var(--err); }
+
+.statusbar { display: flex; gap: 8px; padding: 4px max(16px, calc((100% - 820px) / 2)); min-height: 22px; }
+.composer { display: flex; gap: 8px; padding: 12px max(16px, calc((100% - 820px) / 2)) 16px; border-top: 1px solid var(--line);
+            background: var(--panel); }
+.composer input { flex: 1; font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px;
+                  background: var(--bg); color: var(--text); min-width: 0; }
+
+@media (max-width: 720px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); height: 100vh; }
+  .sidebar { border-right: none; border-bottom: 1px solid var(--line); max-height: 38vh; overflow: auto; }
+  .sessions { flex: none; }
+  .msg-user { max-width: 90%; }
+}
